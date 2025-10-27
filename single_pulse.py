@@ -1,0 +1,191 @@
+#
+# Copyright (C) 2018-2022 Pico Technology Ltd. See LICENSE file for terms.
+#
+# PS5000A BLOCK MODE EXAMPLE
+# This example opens a 5000a driver device, sets up two channels and a trigger then collects a block of data.
+# This data is then plotted as mV against time in ns.
+from __future__ import annotations
+
+import ctypes
+import logging
+import os
+import sys
+import time
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from picoscope import Picoscope
+
+import openlifu
+from openlifu.bf.pulse import Pulse
+from openlifu.bf.sequence import Sequence
+from openlifu.db import Database
+from openlifu.geo import Point
+from openlifu.io.LIFUInterface import LIFUInterface
+from openlifu.plan.solution import Solution
+from qpx600dp import QPX600DP
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Prevent duplicate handlers and cluttered terminal output
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
+    logger.propagate = False
+
+log_interval = 1  # seconds; you can adjust this variable as needed
+
+# set focus
+xInput = 0
+yInput = 0
+zInput = 50
+
+frequency_kHz = 400 # Frequency in kHz
+voltage = 10.0 # Voltage in Volts
+duration_msec = 20/frequency_kHz # Pulse Duration in milliseconds
+interval_msec = 10 # Pulse Repetition Interval in milliseconds
+num_modules = 1 # Number of modules in the system
+
+peak_to_peak_voltage = voltage * 2 # Peak to peak voltage for the pulse
+
+openlifu_path = Path(openlifu.__file__).parent.parent.parent.resolve()
+db_path = openlifu_path / "db_dvc"
+db = Database(db_path)
+arr = db.load_transducer(f"openlifu_{num_modules}x400_evt1")
+arr.sort_by_pin()
+
+target = Point(position=(xInput,yInput,zInput), units="mm")
+focus = target.get_position(units="mm")
+distances = np.sqrt(np.sum((focus - arr.get_positions(units="mm"))**2, 1)).reshape(1,-1)
+tof = distances*1e-3 / 1500
+delays = tof.max() - tof
+print(f"TOF Max = {tof.max()*1e6} us")
+
+apodizations = np.ones((1, arr.numelements()))
+
+logger.info("Starting LIFU Test Script...")
+with LIFUInterface(ext_power_supply=True) as interface, Picoscope(resolution="15BIT") as scope, QPX600DP() as hv:
+    tx_connected, hv_connected = interface.is_device_connected()
+    if tx_connected:
+        logger.info(f"  TX Connected: {tx_connected}")
+        logger.info("✅ LIFU Device fully connected.")
+    else:
+        raise IOError("❌ TX NOT fully connected.")        
+
+    hv.set_all_outputs(False)
+
+    stop_logging = False  # flag to signal the logging thread to stop
+
+    # Verify communication with the devices
+    if not interface.txdevice.ping():
+       raise IOError("Failed to ping the transmitter device.")
+        
+    tx_firmware_version = interface.txdevice.get_version()
+    logger.info(f"TX Firmware Version: {tx_firmware_version}")
+
+    logger.info("Enumerate TX7332 chips")
+    num_tx_devices = interface.txdevice.enum_tx7332_devices()
+    if num_tx_devices == 0:
+        raise ValueError("No TX7332 devices found.")
+    elif num_tx_devices == num_modules*2:
+        logger.info(f"Number of TX7332 devices found: {num_tx_devices}")
+        numelements = 32*num_tx_devices
+    else:
+        raise Exception(f"Number of TX7332 devices found: {num_tx_devices} != 2x{num_modules}")
+
+    logger.info(f'Apodizations: {apodizations}')
+    logger.info(f'Delays: {delays}')
+
+    pulse = Pulse(frequency=frequency_kHz*1e3, duration=duration_msec*1e-3)
+
+    sequence = Sequence(
+        pulse_interval=interval_msec*1e-3,
+        pulse_count=2,
+        pulse_train_interval=0,
+        pulse_train_count=1
+    )
+
+    pin_order = np.argsort([el.pin for el in arr.elements])
+    solution = Solution(
+        delays = delays[:, pin_order],
+        apodizations = apodizations[:, pin_order],
+        pulse = pulse,
+        voltage=voltage,
+        sequence = sequence
+    )
+    profile_index = 1
+    profile_increment = True
+    trigger_mode = "single"
+
+    for output in [1,2]:
+        hv.set_voltage(output=output, voltage=voltage)
+    
+    interface.set_solution(
+        solution=solution,
+        profile_index=profile_index,
+        profile_increment=profile_increment,
+        trigger_mode=trigger_mode)
+
+    logger.info("Get Trigger")
+    trigger_setting = interface.txdevice.get_trigger_json()
+    if trigger_setting:
+        logger.info(f"Trigger Setting: {trigger_setting}")
+    else:
+        logger.error("Failed to get trigger setting.")
+        sys.exit(1)
+
+    duty_cycle = int((duration_msec/interval_msec) * 100)
+    if duty_cycle > 50:
+        logger.warning("❗❗ Duty cycle is above 50% ❗❗")
+
+    logger.info(f"User parameters set: \n\
+        Module Invert: {arr.module_invert}\n\
+        Frequency: {frequency_kHz}kHz\n\
+        Voltage Per Rail: {voltage}V\n\
+        Voltage Peak to Peak: {peak_to_peak_voltage}V\n\
+        Duration: {duration_msec}ms\n\
+        Interval: {interval_msec}ms\n\
+        Duty Cycle: {duty_cycle}%\n")
+    # Create chandle and status ready for use
+    chandle = ctypes.c_int16()
+    status = {}
+
+
+    scope.set_channel('A', range_mv=100, coupling='DC')
+    scope.set_channel('B', range_mv=5000, coupling='DC')
+    scope.set_trigger(channel='A', threshold_mv=-4, direction='falling')
+
+    # Set number of pre and post trigger samples to be collected
+    preTriggerSamples = 100
+    postTriggerSamples = 1500
+
+    hv.set_all_outputs(True)
+    for channel in [1,2]:
+        hv.wait_ready(channel, voltage)
+
+    s = input("Press any key to start")
+    logger.info("Sending Single Trigger...")
+
+    scope.run_block(pre_trigger_samples=preTriggerSamples, post_trigger_samples=postTriggerSamples, timebase=8)
+    time.sleep(0.1)
+    interface.txdevice.start_trigger()
+    scope.wait_ready()
+    result = scope.get_data(preTriggerSamples+postTriggerSamples, 8)
+
+    interface.txdevice.stop_trigger()
+    hv.set_all_outputs(False)
+logger.info("Finished")
+
+# plot data from channel A and B
+plt.plot(result["time"], result["A"])
+#plt.plot(result["time"], result["A"])
+#plt.plot(result["time"], result["B"])
+#plt.plot(time, adc2mVChBMax[:])
+plt.xlabel('Time (ns)')
+plt.ylabel('Voltage (mV)')
+plt.show()
+
