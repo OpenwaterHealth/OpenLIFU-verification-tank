@@ -23,10 +23,10 @@ class OpenLIFUVerification:
     A context manager to simplify OpenLIFU verification tasks.
     """
 
-    def __init__(self, transducer_name, picoscope_resolution="15BIT", num_modules=1):
+    def __init__(self, transducer_id, picoscope_resolution="15BIT", num_modules=1):
         self.picoscope_resolution = picoscope_resolution
         self.num_modules = num_modules
-        self.transducer_name = transducer_name
+        self.transducer_id = transducer_id
         self.lifu = None
         self.scope = None
         self.hv = None
@@ -67,7 +67,7 @@ class OpenLIFUVerification:
                  raise Exception(f"Number of TX7332 devices found: {num_tx_devices} != 2x{self.num_modules}")
             logger.info(f"Number of TX7332 devices found: {num_tx_devices}")
 
-            self.arr = Transducer.from_file(f"transducers/{self.transducer_name}.yaml")
+            self.arr = Transducer.from_file(f"transducers/{self.transducer_id}/{self.transducer_id}.json")
             self.arr.sort_by_pin()
 
 
