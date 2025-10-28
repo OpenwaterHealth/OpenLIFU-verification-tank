@@ -108,8 +108,7 @@ class OpenLIFUVerification:
         profile_increment = True
         trigger_mode = "single"
 
-        for output in [1,2]:
-            self.hv.set_voltage(output, voltage=voltage)
+        self.hv.set_voltage(voltage)
 
         self.lifu.set_solution(
             solution=solution,
@@ -179,10 +178,8 @@ class OpenLIFUVerification:
         """
         Sets the voltage on both channels of the HVPS and waits for them to be ready.
         """
-        for output in [1, 2]:
-            self.hv.set_voltage(output, voltage)
-        for output in [1, 2]:
-            self.hv.wait_ready(output, voltage)
+        self.hv.set_voltage(voltage)
+        self.hv.wait_ready(target=voltage)
 
     def get_peak_voltage(self, x, y, z):
         """

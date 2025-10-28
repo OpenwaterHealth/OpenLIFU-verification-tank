@@ -51,8 +51,7 @@ def main():
 
             # Enable power supply
             ver.hv.set_all_outputs(True)
-            for channel in [1, 2]:
-                ver.hv.wait_ready(channel, voltage)
+            ver.hv.wait_ready(target=voltage)
 
             s = input("Press any key to start")
 

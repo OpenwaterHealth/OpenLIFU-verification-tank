@@ -56,11 +56,7 @@ def main():
 
             outputs = []
             for voltage in voltages:
-                for output in [1, 2]:
-                    ver.hv.set_voltage(output, voltage=voltage)
-                for output in [1, 2]:
-                    ver.hv.wait_ready(output, target=voltage)
-
+                ver.set_voltage(voltage)
                 data = ver.run_capture(pre_trigger_samples=100, post_trigger_samples=1500)
                 outputs.append(data)
 
