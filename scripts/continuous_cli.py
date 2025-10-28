@@ -26,14 +26,11 @@ def main():
     duration_msec = 10 / 400
     interval_msec = 50
     num_modules = 1
-
-    # Get DB path
-    openlifu_path = Path(openlifu.__file__).parent.parent.parent.resolve()
-    db_path = openlifu_path / "db_dvc"
+    transducer_name = "openlifu_1x400_evt1"
 
     logger.info("Starting Continuous CLI Script...")
     try:
-        with OpenLIFUVerification(db_path=db_path, num_modules=num_modules) as ver:
+        with OpenLIFUVerification(transducer_name=transducer_name, num_modules=num_modules) as ver:
             # Configure LIFU and HVPS
             ver.configure_lifu(
                 frequency_kHz=frequency_kHz,

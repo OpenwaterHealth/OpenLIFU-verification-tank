@@ -12,7 +12,7 @@ from openlifu.io.LIFUTXDevice import Tx7332DelayProfile
 from openlifu.bf.pulse import Pulse
 from openlifu.bf.sequence import Sequence
 from openlifu.plan.solution import Solution
-from openlifu.db import Database
+from openlifu.transducer import Transducer
 
 
 logger = logging.getLogger(__name__)
@@ -23,15 +23,14 @@ class OpenLIFUVerification:
     A context manager to simplify OpenLIFU verification tasks.
     """
 
-    def __init__(self, picoscope_resolution="15BIT", num_modules=1, db_path=None):
+    def __init__(self, transducer_name, picoscope_resolution="15BIT", num_modules=1):
         self.picoscope_resolution = picoscope_resolution
         self.num_modules = num_modules
-        self.db_path = db_path
+        self.transducer_name = transducer_name
         self.lifu = None
         self.scope = None
         self.hv = None
         self.arr = None
-        self.db = None
 
     def __enter__(self):
         """
@@ -68,10 +67,8 @@ class OpenLIFUVerification:
                  raise Exception(f"Number of TX7332 devices found: {num_tx_devices} != 2x{self.num_modules}")
             logger.info(f"Number of TX7332 devices found: {num_tx_devices}")
 
-            if self.db_path:
-                self.db = Database(self.db_path)
-                self.arr = self.db.load_transducer(f"openlifu_{self.num_modules}x400_evt1")
-                self.arr.sort_by_pin()
+            self.arr = Transducer.from_file(f"transducers/{self.transducer_name}.yaml")
+            self.arr.sort_by_pin()
 
 
         except Exception as e:

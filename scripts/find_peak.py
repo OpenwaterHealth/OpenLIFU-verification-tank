@@ -20,10 +20,9 @@ def main():
     """
     Finds the x-y peak using gradient ascent.
     """
-    openlifu_path = Path(openlifu.__file__).parent.parent.parent.resolve()
-    db_path = openlifu_path / "db_dvc"
+    transducer_name = "openlifu_1x400_evt1"
 
-    with OpenLIFUVerification(db_path=db_path) as ver:
+    with OpenLIFUVerification(transducer_name=transducer_name) as ver:
 
         # Initial parameters
         z = 50
