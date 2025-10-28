@@ -53,12 +53,10 @@ class OpenLIFUVerification:
                 logger.info(f"  TX Connected: {tx_connected}")
                 logger.info("✅ LIFU Device fully connected.")
             else:
-                logger.error("❌ TX NOT fully connected.")
-                sys.exit(1)
+                raise ConnectionError("❌ TX NOT fully connected.")
 
             if not self.lifu.txdevice.ping():
-                logger.error("Failed to ping the transmitter device.")
-                sys.exit(1)
+                raise ConnectionError("Failed to ping the transmitter device.")
 
             tx_firmware_version = self.lifu.txdevice.get_version()
             logger.info(f"TX Firmware Version: {tx_firmware_version}")
@@ -82,6 +80,42 @@ class OpenLIFUVerification:
             raise
 
         return self
+
+    def configure_lifu(self, frequency_kHz, voltage, duration_msec, interval_msec):
+
+        pulse = Pulse(frequency=frequency_kHz*1e3, duration=duration_msec*1e-3)
+
+        sequence = Sequence(
+            pulse_interval=interval_msec*1e-3,
+            pulse_count=2,
+            pulse_train_interval=0,
+            pulse_train_count=1
+        )
+
+        #Dummy values for delays and apodizations
+        delays = np.zeros((1, self.arr.numelements()))
+        apodizations = np.ones((1, self.arr.numelements()))
+
+        pin_order = np.argsort([el.pin for el in self.arr.elements])
+        solution = Solution(
+            delays = delays[:, pin_order],
+            apodizations = apodizations[:, pin_order],
+            pulse = pulse,
+            voltage=voltage,
+            sequence = sequence
+        )
+        profile_index = 1
+        profile_increment = True
+        trigger_mode = "single"
+
+        for output in [1,2]:
+            self.hv.set_voltage(output, voltage=voltage)
+
+        self.lifu.set_solution(
+            solution=solution,
+            profile_index=profile_index,
+            profile_increment=profile_increment,
+            trigger_mode=trigger_mode)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -140,6 +174,15 @@ class OpenLIFUVerification:
         self.lifu.txdevice.start_trigger()
         self.scope.wait_ready()
         return self.scope.get_data(pre_trigger_samples+post_trigger_samples, timebase)
+
+    def set_voltage(self, voltage):
+        """
+        Sets the voltage on both channels of the HVPS and waits for them to be ready.
+        """
+        for output in [1, 2]:
+            self.hv.set_voltage(output, voltage)
+        for output in [1, 2]:
+            self.hv.wait_ready(output, voltage)
 
     def get_peak_voltage(self, x, y, z):
         """
