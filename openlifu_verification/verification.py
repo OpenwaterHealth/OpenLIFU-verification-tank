@@ -23,8 +23,9 @@ class OpenLIFUVerification:
     A context manager to simplify OpenLIFU verification tasks.
     """
 
-    def __init__(self, frequency=400, use_picoscope=True, num_modules=1):
+    def __init__(self, frequency=400, use_picoscope=True, num_modules=1, resolution=PICOSCOPE_RESOLUTION):
         self.use_picoscope = use_picoscope
+        self.resolution = resolution
         self.num_modules = num_modules
         self.frequency = frequency
         self.lifu = None
@@ -40,7 +41,7 @@ class OpenLIFUVerification:
             self.lifu = LIFUInterface(ext_power_supply=True)
             self.hv = QPX600DP()
             if self.use_picoscope:
-                self.scope = Picoscope(resolution=PICOSCOPE_RESOLUTION)
+                self.scope = Picoscope(resolution=self.resolution)
                 self.scope.__enter__()
             self.lifu.__enter__()            
             self.hv.__enter__()
@@ -182,6 +183,11 @@ class OpenLIFUVerification:
                 if not self.lifu.txdevice.write_block(identifier=txi, start_address=addr, reg_values=reg_values):
                     logger.error(f"Error applying TX CHIP ID: {txi} registers")
 
+    def set_scope_trigger(self, channel="A", threshold_mV=100, direction="rising"):
+        if not self.scope:
+            raise ValueError("No Picoscope Connected")
+        self.scope.set_trigger(channel=channel, threshold_mV=threshold_mV, direction=direction)
+
     def run_capture(self, pre_trigger_samples=2500, post_trigger_samples=10000, timebase=8):
         if not self.scope:
             raise ValueError("No Picoscope Connected")
@@ -191,6 +197,24 @@ class OpenLIFUVerification:
         self.lifu.txdevice.start_trigger()
         self.scope.wait_ready()
         return self.scope.get_data(pre_trigger_samples+post_trigger_samples, timebase)
+
+    def run_capture_with_interval(self, pre_trigger_samples=2500, post_trigger_samples=10000, sampling_interval_ns=16):
+        """
+        Capture data using a specified sampling interval in nanoseconds.
+        
+        This is a convenience method that automatically converts the sampling interval
+        to the appropriate timebase value using the sampling_interval_to_timebase method.
+        
+        Args:
+            pre_trigger_samples: Number of samples to capture before trigger
+            post_trigger_samples: Number of samples to capture after trigger  
+            sampling_interval_ns: Desired sampling interval in nanoseconds
+            
+        Returns:
+            Dictionary containing captured data for each channel and time array
+        """
+        timebase = self.sampling_interval_to_timebase(sampling_interval_ns)
+        return self.run_capture(pre_trigger_samples, post_trigger_samples, timebase)
 
     def set_voltage(self, voltage, wait=False):
         """
@@ -232,3 +256,107 @@ class OpenLIFUVerification:
             logger.info(f"Iteration {i+1}/{iterations}: x={x:.2f}, y={y:.2f}, Vp-p={v_current:.2f}")
 
         return x, y
+
+    @staticmethod
+    def sampling_interval_to_timebase(sampling_interval_ns, resolution=PICOSCOPE_RESOLUTION):
+        """
+        Convert a sampling interval in nanoseconds to a Picoscope timebase integer.
+        
+        Based on the Picoscope documentation, the relationship between timebase (n) and 
+        sampling interval depends on the bit depth resolution:
+        
+        8-bit:  0-2: 2^n / 1,000,000,000 ns
+                3+:  (n-2) / 125,000,000 ns
+        12-bit: 1-3: 2^(n-1) / 500,000,000 ns  
+                4+:  (n-3) / 62,500,000 ns
+        14-bit: 3:   1 / 125,000,000 = 8 ns
+                4+:  (n-2) / 125,000,000 ns
+        15-bit: 3:   1 / 125,000,000 = 8 ns
+                4+:  (n-2) / 125,000,000 ns
+        16-bit: 4:   1 / 62,500,000 = 16 ns
+                5+:  (n-3) / 62,500,000 ns
+        
+        Args:
+            sampling_interval_ns: Target sampling interval in nanoseconds
+            
+        Returns:
+            timebase: The timebase integer to use
+            
+        Raises:
+            ValueError: If no valid timebase can be found for the given interval
+        """
+        # Map resolution strings to bit depths
+        resolutions = ("8BIT", "12BIT", "14BIT", "15BIT", "16BIT")
+        
+        if resolution not in resolutions:
+            raise ValueError(f"Unsupported resolution: {resolution}")
+
+        def calculate_interval(timebase, resolution):
+            """Calculate sampling interval for given timebase and resolution"""
+            if resolution == "8BIT":
+                if timebase <= 2:
+                    return (2 ** timebase) / 1_000_000_000
+                else:
+                    return (timebase - 2) / 125_000_000
+            elif resolution == "12BIT":
+                if timebase <= 3:
+                    return (2 ** (timebase - 1)) / 500_000_000
+                else:
+                    return (timebase - 3) / 62_500_000
+            elif resolution in ["14BIT", "15BIT"]:
+                if timebase == 3:
+                    return 1 / 125_000_000
+                else:
+                    return (timebase - 2) / 125_000_000
+            elif resolution == "16BIT":
+                if timebase == 4:
+                    return 1 / 62_500_000
+                else:
+                    return (timebase - 3) / 62_500_000
+            else:
+                raise ValueError(f"Unsupported bit depth: {bit_depth}")
+        
+        # Convert nanoseconds to seconds for calculation
+        target_interval_s = sampling_interval_ns * 1e-9
+        
+        # Find the best timebase by checking valid ranges
+        best_timebase = None
+        best_error = float('inf')
+
+        # Define search ranges based on resolution
+        if resolution == "8BIT":
+            search_range = list(range(0, 3)) + list(range(3, 100))  # Check reasonable range
+        elif resolution == "12BIT":
+            search_range = list(range(1, 4)) + list(range(4, 100))
+        elif resolution in ["14BIT", "15BIT"]:
+            search_range = [3] + list(range(4, 100))
+        elif resolution == "16BIT":
+            search_range = [4] + list(range(5, 100))
+        else:
+            raise ValueError(f"Unsupported resolution: {resolution}")
+        
+        for timebase in search_range:
+            try:
+                calculated_interval = calculate_interval(timebase, resolution)
+                error = abs(calculated_interval - target_interval_s)
+                
+                if error < best_error:
+                    best_error = error
+                    best_timebase = timebase
+                    
+                # If we find an exact match, stop searching
+                if error < 1e-12:  # Very small tolerance for floating point comparison
+                    break
+                    
+            except (ValueError, ZeroDivisionError):
+                continue
+        
+        if best_timebase is None:
+            raise ValueError(f"No valid timebase found for sampling interval {sampling_interval_ns} ns at {bit_depth}-bit resolution")
+        
+        # Log the result for verification
+        actual_interval = calculate_interval(best_timebase, resolution) * 1e9  # Convert back to ns
+        logger.info(f"Timebase {best_timebase} selected for {sampling_interval_ns} ns target "
+                   f"(actual: {actual_interval:.3f} ns, error: {abs(actual_interval - sampling_interval_ns):.3f} ns)")
+        
+        return best_timebase
