@@ -98,32 +98,47 @@ class QPX600DP:
         return response
 
     # Instrument Specific Commands
-    def set_voltage(self, output, voltage):
+    def set_voltage(self, voltage, *, output='both'):
         """
         Sets the output voltage.
 
         Args:
-            output (int): The output channel (1 or 2).
             voltage (float): The desired voltage.
+            output (int or 'both'): The output channel (1, 2, or 'both').
         """
-        verify=False # Not Working Yet
-        if verify:
-            self._send_command(f"V{output}V {voltage}")
-        else:
-            self._send_command(f"V{output} {voltage}")
+        outputs = [1, 2] if output == 'both' else [output]
+        for out in outputs:
+            self._send_command(f"V{out} {voltage}")
 
-    def wait_ready(self, output, target=None, timeout=1.0, thresh=0.02, poll_interval=0.001) -> bool:
-        if not self.get_output_state(output):
-            return True # No output to sync
-        if target is None:
-            target = self.get_set_voltage(output)
-        actual_v = self.get_output_voltage(output)
-        t0 = time.time()
-        while ((abs(actual_v - target)/target) > thresh):
-            if (time.time()-t0) > timeout:
-                return False
-            actual_v = self.get_output_voltage(output)
-            time.sleep(poll_interval)
+    def wait_ready(self, target=None, *, output='both', timeout=1.0, thresh=0.02, poll_interval=0.001) -> bool:
+        """
+        Waits for the output voltage to settle.
+
+        Args:
+            target (float, optional): The target voltage. Defaults to the set voltage.
+            output (int or 'both'): The output channel (1, 2, or 'both').
+            timeout (float): The maximum time to wait.
+            thresh (float): The acceptable error threshold.
+            poll_interval (float): The time between checks.
+
+        Returns:
+            bool: True if the voltage settled, False otherwise.
+        """
+        outputs = [1, 2] if output == 'both' else [output]
+        for out in outputs:
+            if not self.get_output_state(out):
+                continue  # No output to sync
+
+            _target = target if target is not None else self.get_set_voltage(out)
+
+            t0 = time.time()
+            while True:
+                actual_v = self.get_output_voltage(out)
+                if abs(actual_v - _target) / _target <= thresh:
+                    break
+                if (time.time() - t0) > timeout:
+                    return False
+                time.sleep(poll_interval)
         return True
 
     def get_set_voltage(self, output):
@@ -317,32 +332,3 @@ class QPX600DP:
             str: The identification string.
         """
         return self._query("*IDN?")
-
-if __name__ == '__main__':
-    try:
-        with QPX600DP() as hvps:
-            print(f"Connected to: {hvps.get_id()}")
-
-            # Example usage for output 1
-            output = 1
-            
-            hvps.set_voltage(output, 10.0)
-            hvps.set_current_limit(output, 0.5)
-
-            print(f"Set Voltage on Output {output}: {hvps.get_set_voltage(output)} V")
-            print(f"Set Current on Output {output}: {hvps.get_set_current_limit(output)} A")
-
-            hvps.set_output(output, True)
-            print(f"Output {output} is {'ON' if hvps.get_output_state(output) else 'OFF'}")
-
-            import time
-            time.sleep(2)
-
-            print(f"Measured Voltage on Output {output}: {hvps.get_output_voltage(output)} V")
-            print(f"Measured Current on Output {output}: {hvps.get_output_current(output)} A")
-
-            hvps.set_output(output, False)
-            print(f"Output {output} is {'ON' if hvps.get_output_state(output) else 'OFF'}")
-
-    except ConnectionError as e:
-        print(e)
