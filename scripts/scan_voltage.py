@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 import numpy as np
-import openlifu
 from openlifu_verification import OpenLIFUVerification
 
 # Configure logging
@@ -53,7 +52,7 @@ def main():
             outputs = []
             for voltage in voltages:
                 ver.set_voltage(voltage, wait=True)
-                print(f"{voltage=}, actual={ver.hv.get_output_voltage(1),{ver.hv.get_output_voltage(2)}}")
+                print(f"{voltage=}, actual={ver.hv.get_output_voltage(1)},{ver.hv.get_output_voltage(2)}")
                 data = ver.run_capture(pre_trigger_samples=100, post_trigger_samples=1500)
                 outputs.append(data)
 
