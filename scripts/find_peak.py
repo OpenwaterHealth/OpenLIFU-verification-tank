@@ -20,9 +20,7 @@ def main():
     """
     Finds the x-y peak using gradient ascent.
     """
-    transducer_id = "openlifu-1x400-evt1"
-
-    with OpenLIFUVerification(transducer_id=transducer_id) as ver:
+    with OpenLIFUVerification(frequency=400, num_modules=1) as ver:
 
         # Initial parameters
         z = 50
@@ -35,6 +33,7 @@ def main():
         ver.scope.set_trigger(channel='B', threshold_mv=1000, direction='rising')
 
         # Turn on the power supply
+        ver.hv.get_output_voltage(10)
         ver.hv.set_all_outputs(True)
 
         # Find the peak

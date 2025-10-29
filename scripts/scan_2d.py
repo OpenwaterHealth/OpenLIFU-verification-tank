@@ -26,11 +26,10 @@ def main():
     duration_msec = 20 / 400
     interval_msec = 20
     num_modules = 1
-    transducer_id = "openlifu-1x400-evt1"
 
     logger.info("Starting 2D Scan Script...")
     try:
-        with OpenLIFUVerification(transducer_id=transducer_id, num_modules=num_modules) as ver:
+        with OpenLIFUVerification(frequency=frequency_kHz, num_modules=num_modules) as ver:
             # Configure LIFU and HVPS
             ver.configure_lifu(
                 frequency_kHz=frequency_kHz,

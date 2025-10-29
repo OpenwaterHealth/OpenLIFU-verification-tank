@@ -332,32 +332,3 @@ class QPX600DP:
             str: The identification string.
         """
         return self._query("*IDN?")
-
-if __name__ == '__main__':
-    try:
-        with QPX600DP() as hvps:
-            print(f"Connected to: {hvps.get_id()}")
-
-            # Example usage for output 1
-            output = 1
-            
-            hvps.set_voltage(output, 10.0)
-            hvps.set_current_limit(output, 0.5)
-
-            print(f"Set Voltage on Output {output}: {hvps.get_set_voltage(output)} V")
-            print(f"Set Current on Output {output}: {hvps.get_set_current_limit(output)} A")
-
-            hvps.set_output(output, True)
-            print(f"Output {output} is {'ON' if hvps.get_output_state(output) else 'OFF'}")
-
-            import time
-            time.sleep(2)
-
-            print(f"Measured Voltage on Output {output}: {hvps.get_output_voltage(output)} V")
-            print(f"Measured Current on Output {output}: {hvps.get_output_current(output)} A")
-
-            hvps.set_output(output, False)
-            print(f"Output {output} is {'ON' if hvps.get_output_state(output) else 'OFF'}")
-
-    except ConnectionError as e:
-        print(e)

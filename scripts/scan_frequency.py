@@ -17,44 +17,49 @@ if not logger.hasHandlers():
 
 def main():
     # Parameters
+    xInput = 0
+    yInput = 0
     zInput = 50
-    xfoci = np.linspace(-10, 10, 41)
-    yfoci = [0]
-
+    voltage = 10
+    frequencies = np.arange(350, 451, 5)
     frequency_kHz = 400
-    voltage = 10.0
+    initial_voltage = 10.0
     duration_msec = 20 / 400
     interval_msec = 20
     num_modules = 1
 
-    logger.info("Starting Lateral Scan Script...")
+    logger.info("Starting Frequency Scan Script...")
     try:
         with OpenLIFUVerification(frequency=frequency_kHz, num_modules=num_modules) as ver:
             # Configure LIFU and HVPS
             ver.configure_lifu(
                 frequency_kHz=frequency_kHz,
-                voltage=voltage,
+                voltage=initial_voltage,
                 duration_msec=duration_msec,
                 interval_msec=interval_msec
             )
+            ver.set_focus(xInput, yInput, zInput)
 
             # Configure Picoscope
             ver.scope.set_channel('A', range_mv=100, coupling='DC')
-            ver.scope.set_channel('B', range_mv=1500, coupling='DC')
+            ver.scope.set_channel('B', range_mv=5000, coupling='DC')
             ver.scope.set_trigger(channel='A', threshold_mv=-2, direction='falling')
 
             # Enable power supply
+            ver.set_voltage(voltage)
             ver.hv.set_all_outputs(True)
+            ver.hv.wait_ready()
 
             s = input("Press any key to start")
 
             outputs = []
-            for yfocus in yfoci:
-                for xfocus in xfoci:
-                    logger.info(f"{xfocus=}")
-                    ver.set_focus(xfocus, yfocus, zInput)
-                    data = ver.run_capture()
-                    outputs.append(data)
+            for frequency in frequencies:
+                print(f"{frequency=}")
+                ver.set_pulse(frequency_kHz=frequency, duration_msec=duration_msec)                
+                print("Capturing...")
+                data = ver.run_capture(pre_trigger_samples=100, post_trigger_samples=1500)
+                print("Complete")
+                outputs.append(data)
 
             # Stop the trigger manually after the scan is complete
             ver.lifu.txdevice.stop_trigger()
@@ -63,18 +68,17 @@ def main():
         logger.error(f"An error occurred: {e}")
         return # Exit gracefully
 
-    logger.info("Finished Lateral Scan.")
+    logger.info("Finished Frequency Scan.")
     if outputs:
         # Process and save data
         t = outputs[0]["time"]
-        a_channel_outputs = np.array([output["A"] for output in outputs]).reshape([len(yfoci), len(xfoci), -1])
-        savedata = {'t': t, "outputs": a_channel_outputs, "xfoci": xfoci, "yfoci": yfoci}
+        a_channel_outputs = np.array([output["A"] for output in outputs]).reshape([len(frequencies), -1])
         out_path = Path(__file__).parent.resolve() / 'data'
-        np.savez(out_path / "scan_lat_data.npz", **savedata)
-        logger.info("Data saved to scan_lat_data.npz")
+        savedata = {'t': t, "outputs": a_channel_outputs, "freq": frequencies}
+        np.savez(out_path / "scan_freq_data.npz", **savedata)
+        logger.info("Data saved to scan_freq_data.npz")
     else:
         logger.warning("No data was collected.")
-
 
 if __name__ == "__main__":
     main()

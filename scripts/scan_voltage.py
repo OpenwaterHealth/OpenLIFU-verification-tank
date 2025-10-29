@@ -20,18 +20,17 @@ def main():
     xInput = 0
     yInput = 0
     zInput = 50
-    voltages = np.arange(5, 20, 1)
+    voltages = np.arange(5, 20, 0.5)
 
     frequency_kHz = 400
     initial_voltage = 10.0
     duration_msec = 20 / 400
     interval_msec = 20
     num_modules = 1
-    transducer_id = "openlifu-1x400-evt1"
 
     logger.info("Starting Voltage Scan Script...")
     try:
-        with OpenLIFUVerification(transducer_id=transducer_id, num_modules=num_modules) as ver:
+        with OpenLIFUVerification(frequency=frequency_kHz, num_modules=num_modules) as ver:
             # Configure LIFU and HVPS
             ver.configure_lifu(
                 frequency_kHz=frequency_kHz,
@@ -53,7 +52,8 @@ def main():
 
             outputs = []
             for voltage in voltages:
-                ver.set_voltage(voltage)
+                ver.set_voltage(voltage, wait=True)
+                print(f"{voltage=}, actual={ver.hv.get_output_voltage(1),{ver.hv.get_output_voltage(2)}}")
                 data = ver.run_capture(pre_trigger_samples=100, post_trigger_samples=1500)
                 outputs.append(data)
 
@@ -70,7 +70,8 @@ def main():
         t = outputs[0]["time"]
         a_channel_outputs = np.array([output["A"] for output in outputs]).reshape([len(voltages), -1])
         savedata = {'t': t, "outputs": a_channel_outputs, "voltages": voltages}
-        np.savez("scan_voltage_data.npz", **savedata)
+        out_path = Path(__file__).parent.resolve() / 'data'
+        np.savez(out_path / "scan_voltage_data.npz", **savedata)
         logger.info("Data saved to scan_voltage_data.npz")
     else:
         logger.warning("No data was collected.")

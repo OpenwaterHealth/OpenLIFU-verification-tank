@@ -9,7 +9,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "picosdk",
-    "openlifu @ git+https://github.com/OpenWaterHealth/OpenLIFU-python",
+    "openlifu",
 ]
 
 [tool.setuptools]

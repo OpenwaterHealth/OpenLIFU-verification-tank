@@ -26,17 +26,17 @@ def main():
     duration_msec = 10 / 400
     interval_msec = 50
     num_modules = 1
-    transducer_id = "openlifu-1x400-evt1"
 
     logger.info("Starting Continuous CLI Script...")
     try:
-        with OpenLIFUVerification(transducer_id=transducer_id, num_modules=num_modules) as ver:
+        with OpenLIFUVerification(frequency=frequency_kHz, use_picoscope=False, num_modules=num_modules) as ver:
             # Configure LIFU and HVPS
             ver.configure_lifu(
                 frequency_kHz=frequency_kHz,
                 voltage=voltage,
                 duration_msec=duration_msec,
-                interval_msec=interval_msec
+                interval_msec=interval_msec,
+                trigger_mode="continuous"
             )
             ver.set_focus(xInput, yInput, zInput)
 
