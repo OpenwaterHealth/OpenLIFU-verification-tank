@@ -31,50 +31,56 @@ class PicoscopeError(Exception):
     """Custom exception for Picoscope-related errors."""
     pass
 
+# Define available ranges in mV for easy reference
+RANGES_MV = {
+    10: ps.PS5000A_RANGE["PS5000A_10MV"],
+    20: ps.PS5000A_RANGE["PS5000A_20MV"],
+    50: ps.PS5000A_RANGE["PS5000A_50MV"],
+    100: ps.PS5000A_RANGE["PS5000A_100MV"],
+    200: ps.PS5000A_RANGE["PS5000A_200MV"],
+    500: ps.PS5000A_RANGE["PS5000A_500MV"],
+    1000: ps.PS5000A_RANGE["PS5000A_1V"],
+    2000: ps.PS5000A_RANGE["PS5000A_2V"],
+    5000: ps.PS5000A_RANGE["PS5000A_5V"],
+    10000: ps.PS5000A_RANGE["PS5000A_10V"],
+    20000: ps.PS5000A_RANGE["PS5000A_20V"],
+    50000: ps.PS5000A_RANGE["PS5000A_50V"],
+}
 
+CHANNELS = {
+    'A': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"],
+    'B': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_B"],
+    'C': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_C"],
+    'D': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_D"],
+}
+
+COUPLING = {
+    'AC': ps.PS5000A_COUPLING["PS5000A_AC"],
+    'DC': ps.PS5000A_COUPLING["PS5000A_DC"],
+}
+
+TRIGGER_DIRECTIONS = {
+    'rising': 2,  # PS5000A_RISING
+    'falling': 3,  # PS5000A_FALLING
+    'gate_high': 0,  # PS5000A_GATE_HIGH
+    'gate_low': 1,  # PS5000A_GATE_LOW
+}
+
+# Resolution mapping
+RESOLUTION_MAP = {
+        "8BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"],
+        "12BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_12BIT"],
+        "14BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_14BIT"],
+        "15BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_15BIT"],
+        "16BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_16BIT"],
+    }
 class Picoscope:
     """
     A context manager wrapper for PicoScope 5000A series oscilloscopes.
     
     This class provides a high-level interface to the PicoScope, handling
     initialization, configuration, data acquisition, and cleanup automatically.
-    """
-    
-    # Define available ranges in mV for easy reference
-    RANGES_MV = {
-        10: ps.PS5000A_RANGE["PS5000A_10MV"],
-        20: ps.PS5000A_RANGE["PS5000A_20MV"],
-        50: ps.PS5000A_RANGE["PS5000A_50MV"],
-        100: ps.PS5000A_RANGE["PS5000A_100MV"],
-        200: ps.PS5000A_RANGE["PS5000A_200MV"],
-        500: ps.PS5000A_RANGE["PS5000A_500MV"],
-        1000: ps.PS5000A_RANGE["PS5000A_1V"],
-        2000: ps.PS5000A_RANGE["PS5000A_2V"],
-        5000: ps.PS5000A_RANGE["PS5000A_5V"],
-        10000: ps.PS5000A_RANGE["PS5000A_10V"],
-        20000: ps.PS5000A_RANGE["PS5000A_20V"],
-        50000: ps.PS5000A_RANGE["PS5000A_50V"],
-    }
-    
-    CHANNELS = {
-        'A': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"],
-        'B': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_B"],
-        'C': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_C"],
-        'D': ps.PS5000A_CHANNEL["PS5000A_CHANNEL_D"],
-    }
-    
-    COUPLING = {
-        'AC': ps.PS5000A_COUPLING["PS5000A_AC"],
-        'DC': ps.PS5000A_COUPLING["PS5000A_DC"],
-    }
-    
-    TRIGGER_DIRECTIONS = {
-        'rising': 2,  # PS5000A_RISING
-        'falling': 3,  # PS5000A_FALLING
-        'gate_high': 0,  # PS5000A_GATE_HIGH
-        'gate_low': 1,  # PS5000A_GATE_LOW
-    }
-    
+    """    
     def __init__(self, resolution: str = "12BIT"):
         """
         Initialize the Picoscope wrapper.
@@ -88,21 +94,13 @@ class Picoscope:
         self.channel_ranges = {}  # Store configured channel ranges
         self.enabled_channels = set()
         self._is_open = False
-        
-        # Resolution mapping
-        resolution_map = {
-            "8BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"],
-            "12BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_12BIT"],
-            "14BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_14BIT"],
-            "15BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_15BIT"],
-            "16BIT": ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_16BIT"],
-        }
-        
-        if resolution not in resolution_map:
-            raise ValueError(f"Invalid resolution: {resolution}. Must be one of {list(resolution_map.keys())}")
-        
-        self.resolution = resolution_map[resolution]
-        
+
+
+        if resolution not in RESOLUTION_MAP:
+            raise ValueError(f"Invalid resolution: {resolution}. Must be one of {list(RESOLUTION_MAP.keys())}")
+
+        self.resolution = RESOLUTION_MAP[resolution]
+
     def __enter__(self):
         """Context manager entry."""
         self.open_unit()
@@ -197,18 +195,18 @@ class Picoscope:
         if not self._is_open:
             raise PicoscopeError("Device not open. Use within a context manager or call open_unit() first.")
             
-        if channel not in self.CHANNELS:
-            raise ValueError(f"Invalid channel: {channel}. Must be one of {list(self.CHANNELS.keys())}")
+        if channel not in CHANNELS:
+            raise ValueError(f"Invalid channel: {channel}. Must be one of {list(CHANNELS.keys())}")
             
-        if range_mv not in self.RANGES_MV:
-            raise ValueError(f"Invalid range: {range_mv}mV. Must be one of {list(self.RANGES_MV.keys())}")
+        if range_mv not in RANGES_MV:
+            raise ValueError(f"Invalid range: {range_mv}mV. Must be one of {list(RANGES_MV.keys())}")
             
-        if coupling not in self.COUPLING:
-            raise ValueError(f"Invalid coupling: {coupling}. Must be one of {list(self.COUPLING.keys())}")
+        if coupling not in COUPLING:
+            raise ValueError(f"Invalid coupling: {coupling}. Must be one of {list(COUPLING.keys())}")
         
-        channel_enum = self.CHANNELS[channel]
-        range_enum = self.RANGES_MV[range_mv]
-        coupling_enum = self.COUPLING[coupling]
+        channel_enum = CHANNELS[channel]
+        range_enum = RANGES_MV[range_mv]
+        coupling_enum = COUPLING[coupling]
         
         try:
             self.status[f"setCh{channel}"] = ps.ps5000aSetChannel(
@@ -255,17 +253,17 @@ class Picoscope:
         if not self._is_open:
             raise PicoscopeError("Device not open. Use within a context manager or call open_unit() first.")
             
-        if channel not in self.CHANNELS:
-            raise ValueError(f"Invalid channel: {channel}. Must be one of {list(self.CHANNELS.keys())}")
+        if channel not in CHANNELS:
+            raise ValueError(f"Invalid channel: {channel}. Must be one of {list(CHANNELS.keys())}")
             
         if channel not in self.channel_ranges:
             raise PicoscopeError(f"Channel {channel} must be configured before setting trigger")
             
-        if direction not in self.TRIGGER_DIRECTIONS:
-            raise ValueError(f"Invalid direction: {direction}. Must be one of {list(self.TRIGGER_DIRECTIONS.keys())}")
+        if direction not in TRIGGER_DIRECTIONS:
+            raise ValueError(f"Invalid direction: {direction}. Must be one of {list(TRIGGER_DIRECTIONS.keys())}")
         
-        channel_enum = self.CHANNELS[channel]
-        direction_enum = self.TRIGGER_DIRECTIONS[direction]
+        channel_enum = CHANNELS[channel]
+        direction_enum = TRIGGER_DIRECTIONS[direction]
         channel_range = self.channel_ranges[channel]
         
         # Convert threshold from mV to ADC counts
@@ -526,3 +524,130 @@ class Picoscope:
             
         except Exception as e:
             raise PicoscopeError(f"Failed to stop capture: {e}")
+        
+def timebase_to_sampling_interval(timebase: int, resolution: int):
+        """
+        Convert a Picoscope timebase integer to a sampling interval in nanoseconds.
+        
+        Based on the Picoscope documentation, the relationship between timebase (n) and 
+        sampling interval depends on the bit depth resolution:
+        
+        8-bit:  0-2: 2^n / 1,000,000,000 ns
+                3+:  (n-2) / 125,000,000 ns
+        12-bit: 1-3: 2^(n-1) / 500,000,000 ns  
+                4+:  (n-3) / 62,500,000 ns
+        14-bit: 3:   1 / 125,000,000 = 8 ns
+                4+:  (n-2) / 125,000,000 ns
+        15-bit: 3:   1 / 125,000,000 = 8 ns
+                4+:  (n-2) / 125,000,000 ns
+        16-bit: 4:   1 / 62,500,000 = 16 ns
+                5+:  (n-3) / 62,500,000 ns
+        
+        Args:
+            timebase: The timebase integer
+            resolution: Bit depth resolution (8, 12, 14, 15, or 16)
+            
+        Returns:
+            sampling_interval_ns: The sampling interval in nanoseconds
+            
+        Raises:
+            ValueError: If the timebase is invalid for the given resolution
+        """
+        if resolution == 8:
+            if timebase <= 2:
+                return (2 ** timebase) * 1e9
+            else:
+                return ((timebase - 2) / 125_000_000) * 1e9
+        elif resolution == 12:
+            if timebase <= 3:
+                return (2 ** (timebase - 1)) * 2e9
+            else:
+                return ((timebase - 3) / 62_500_000) * 1e9
+        elif resolution in [14, 15]:
+            if timebase == 3:
+                return 8.0
+            else:
+                return ((timebase - 2) / 125_000_000) * 1e9
+        elif resolution == 16:
+            if timebase == 4:
+                return 16.0
+            else:
+                return ((timebase - 3) / 62_500_000) * 1e9
+    
+def sampling_interval_to_timebase(sampling_interval_ns, resolution:int):
+    """
+    Convert a sampling interval in nanoseconds to a Picoscope timebase integer.
+    
+    Based on the Picoscope documentation, the relationship between timebase (n) and 
+    sampling interval depends on the bit depth resolution:
+    
+    8-bit:  0-2: 2^n / 1,000,000,000 ns
+            3+:  (n-2) / 125,000,000 ns
+    12-bit: 1-3: 2^(n-1) / 500,000,000 ns  
+            4+:  (n-3) / 62,500,000 ns
+    14-bit: 3:   1 / 125,000,000 = 8 ns
+            4+:  (n-2) / 125,000,000 ns
+    15-bit: 3:   1 / 125,000,000 = 8 ns
+            4+:  (n-2) / 125,000,000 ns
+    16-bit: 4:   1 / 62,500,000 = 16 ns
+            5+:  (n-3) / 62,500,000 ns
+    
+    Args:
+        sampling_interval_ns: Target sampling interval in nanoseconds
+        
+    Returns:
+        timebase: The timebase integer to use
+        
+    Raises:
+        ValueError: If no valid timebase can be found for the given interval
+    """
+    # Map resolution strings to bit depths
+    resolutions = ("8BIT", "12BIT", "14BIT", "15BIT", "16BIT")
+    
+    if resolution not in resolutions:
+        raise ValueError(f"Unsupported resolution: {resolution}")
+    
+    # Convert nanoseconds to seconds for calculation
+    target_interval_s = sampling_interval_ns * 1e-9
+    
+    # Find the best timebase by checking valid ranges
+    best_timebase = None
+    best_error = float('inf')
+
+    # Define search ranges based on resolution
+    if resolution == RESOLUTION_MAP["8BIT"]:
+        search_range = list(range(0, 3)) + list(range(3, 100))  # Check reasonable range
+    elif resolution == RESOLUTION_MAP["12BIT"]:
+        search_range = list(range(1, 4)) + list(range(4, 100))
+    elif resolution in [RESOLUTION_MAP["14BIT"], RESOLUTION_MAP["15BIT"]]:
+        search_range = [3] + list(range(4, 100))
+    elif resolution == RESOLUTION_MAP["16BIT"]:
+        search_range = [4] + list(range(5, 100))
+    else:
+        raise ValueError(f"Unsupported resolution: {resolution}")
+    
+    for timebase in search_range:
+        try:
+            calculated_interval = timebase_to_sampling_interval(timebase, resolution)
+            error = abs(calculated_interval - target_interval_s)
+            
+            if error < best_error:
+                best_error = error
+                best_timebase = timebase
+                
+            # If we find an exact match, stop searching
+            if error < 1e-12:  # Very small tolerance for floating point comparison
+                break
+                
+        except (ValueError, ZeroDivisionError):
+            continue
+    
+    if best_timebase is None:
+        raise ValueError(f"No valid timebase found for sampling interval {sampling_interval_ns} ns at {bit_depth}-bit resolution")
+    
+    # Log the result for verification
+    actual_interval = timebase_to_sampling_interval(best_timebase, resolution) * 1e9  # Convert back to ns
+    logger.info(f"Timebase {best_timebase} selected for {sampling_interval_ns} ns target "
+                f"(actual: {actual_interval:.3f} ns, error: {abs(actual_interval - sampling_interval_ns):.3f} ns)")
+    
+    return best_timebase
