@@ -410,7 +410,7 @@ class Picoscope:
         buffers = {}
         
         for channel in self.enabled_channels:
-            channel_enum = self.CHANNELS[channel]
+            channel_enum = CHANNELS[channel]
             
             # Create max and min buffers (min not used in this example)
             buffer_max = (ctypes.c_int16 * max_samples)()
