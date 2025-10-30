@@ -2,7 +2,7 @@ import logging
 import sys
 from pathlib import Path
 
-from openlifu_verification.verification import OpenLIFUVerification
+from openlifu_verification.verificationtank import VerificationTank
 import openlifu
 
 # Configure logging
@@ -20,7 +20,7 @@ def main():
     """
     Finds the x-y peak using gradient ascent.
     """
-    with OpenLIFUVerification(frequency=400, num_modules=1) as ver:
+    with VerificationTank(frequency=400, num_modules=1) as ver:
 
         # Initial parameters
         z = 50

@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 import numpy as np
-from openlifu_verification import OpenLIFUVerification
+from openlifu_verification import VerificationTank
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def main():
 
     logger.info("Starting Lateral Scan Script...")
     try:
-        with OpenLIFUVerification(frequency=frequency_kHz, num_modules=num_modules) as ver:
+        with VerificationTank(frequency=frequency_kHz, num_modules=num_modules) as ver:
             # Configure LIFU and HVPS
             ver.configure_lifu(
                 frequency_kHz=frequency_kHz,

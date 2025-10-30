@@ -18,7 +18,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 PICOSCOPE_RESOLUTION = "15BIT"
 
-class OpenLIFUVerification:
+class VerificationTank:
     """
     A context manager to simplify OpenLIFU verification tasks.
     """
