@@ -1,3 +1,5 @@
+(docs written by AI - quality not guaranteed)
+
 # OpenLIFU Verification Tank
 
 A Python-based system for automated acoustic field verification and characterization of focused ultrasound transducers using the OpenLIFU platform.
@@ -13,7 +15,6 @@ The OpenLIFU Verification Tank provides a comprehensive solution for measuring a
 - **Calibrated pressure measurements**: Support for calibrated hydrophones with frequency-dependent sensitivity
 - **High-speed data acquisition**: Integration with PicoScope oscilloscopes for precision timing
 - **Flexible control**: Programmable power supply control with voltage settling detection
-- **Safety features**: Built-in protection and monitoring for safe high-power operation
 
 ## System Components
 
@@ -37,6 +38,7 @@ The OpenLIFU Verification Tank provides a comprehensive solution for measuring a
    - Connect QPX600DP power supply via USB and install AIM TTi drivers
    - Set up OpenLIFU system according to manufacturer instructions
    - Install hydrophone in tank positioning system
+   - Connect Channel A of the Picoscope to the Hydrophone Output, and channel B to the trigger output of the OpenLIFU system (optional)
 
 2. **Python Environment**
    ```bash
