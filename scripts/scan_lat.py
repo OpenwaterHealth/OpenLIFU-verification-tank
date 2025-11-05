@@ -39,7 +39,7 @@ def main():
 
             # Configure Picoscope
             ver.scope.set_channel('A', range_mv=100, coupling='DC')
-            ver.scope.set_channel('B', range_mv=1500, coupling='DC')
+            ver.scope.set_channel('B', range_mv=5000, coupling='DC')
             ver.scope.set_trigger(channel='A', threshold_mv=-2, direction='falling')
 
             # Enable power supply
